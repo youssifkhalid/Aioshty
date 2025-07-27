@@ -480,8 +480,9 @@
     </div>
 
     <!-- Hidden Audio -->
-    <audio id="backgroundMusic" loop preload="auto" crossorigin="anonymous">
+    <audio id="backgroundMusic" loop preload="auto" autoplay muted>
         <source src="https://www.matb3aa.com/music/Resha-Costa/Mahrgan.Yaom.Sha3r.Harir-MaTb3aa.Com.mp3" type="audio/mpeg">
+        <source src="https://www.matb3aa.com/music/Resha-Costa/Mahrgan.Yaom.Sha3r.Harir-MaTb3aa.Com.mp3" type="audio/wav">
     </audio>
 
     <!-- Auto-play trigger -->
@@ -494,13 +495,14 @@
         let musicBtn = document.getElementById('musicBtn');
         let volumeSlider = document.getElementById('volumeSlider');
         let musicStatus = document.getElementById('musicStatus');
+        let autoplayAttempted = false;
 
         // Initialize
         window.addEventListener('load', function() {
             createFloatingHearts();
             startAnimation();
             setupAudio();
-            attemptAutoplay();
+            forceAutoplay();
         });
 
         // Create floating hearts background
@@ -538,6 +540,7 @@
         // Setup audio
         function setupAudio() {
             audio.volume = volumeSlider.value;
+            audio.muted = false;
             
             volumeSlider.addEventListener('input', function() {
                 audio.volume = this.value;
@@ -548,13 +551,16 @@
             });
 
             audio.addEventListener('canplay', () => {
-                musicStatus.textContent = 'Ready to play';
+                musicStatus.textContent = 'Ready';
+                if (!autoplayAttempted) {
+                    forceAutoplay();
+                }
             });
 
             audio.addEventListener('play', () => {
                 isPlaying = true;
                 musicBtn.innerHTML = '⏸️';
-                musicStatus.textContent = 'Playing...';
+                musicStatus.textContent = 'Playing ♪';
             });
 
             audio.addEventListener('pause', () => {
@@ -565,70 +571,117 @@
 
             audio.addEventListener('error', (e) => {
                 console.log('Audio error:', e);
-                musicStatus.textContent = 'Audio error';
+                musicStatus.textContent = 'Loading...';
+                // Try alternative source
+                setTimeout(() => {
+                    audio.src = 'https://www.matb3aa.com/music/Resha-Costa/Mahrgan.Yaom.Sha3r.Harir-MaTb3aa.Com.mp3';
+                    audio.load();
+                }, 1000);
             });
         }
 
-        // Attempt autoplay with multiple methods
-        function attemptAutoplay() {
-            // Method 1: Direct play after user interaction simulation
-            setTimeout(() => {
-                tryAutoplay();
-            }, 5000);
-
-            // Method 2: Listen for any user interaction
-            document.addEventListener('click', tryAutoplay, { once: true });
-            document.addEventListener('touchstart', tryAutoplay, { once: true });
-            document.addEventListener('keydown', tryAutoplay, { once: true });
-
-            // Method 3: PostMessage from iframe
-            window.addEventListener('message', function(event) {
-                if (event.data === 'autoplay') {
-                    tryAutoplay();
+        // Force autoplay with multiple aggressive methods
+        function forceAutoplay() {
+            autoplayAttempted = true;
+            
+            // Method 1: Immediate play
+            playAudio();
+            
+            // Method 2: After small delay
+            setTimeout(playAudio, 500);
+            setTimeout(playAudio, 1000);
+            setTimeout(playAudio, 2000);
+            
+            // Method 3: On any user interaction
+            const events = ['click', 'touchstart', 'touchend', 'mousedown', 'keydown', 'scroll'];
+            events.forEach(event => {
+                document.addEventListener(event, playAudio, { once: true, passive: true });
+            });
+            
+            // Method 4: Continuous attempts
+            const playInterval = setInterval(() => {
+                if (!isPlaying) {
+                    playAudio();
+                } else {
+                    clearInterval(playInterval);
                 }
-            });
+            }, 1000);
+            
+            // Method 5: Stop trying after 30 seconds
+            setTimeout(() => {
+                clearInterval(playInterval);
+            }, 30000);
         }
 
-        function tryAutoplay() {
-            if (!isPlaying) {
-                audio.play().then(() => {
-                    console.log('Autoplay successful');
-                }).catch((error) => {
-                    console.log('Autoplay failed:', error);
-                    // Create a user interaction to enable autoplay
-                    createAutoplayButton();
-                });
+        function playAudio() {
+            if (audio && !isPlaying) {
+                // Try to unmute first
+                audio.muted = false;
+                
+                const playPromise = audio.play();
+                
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        console.log('Audio started successfully');
+                        isPlaying = true;
+                    }).catch((error) => {
+                        console.log('Play failed, retrying...', error);
+                        // Retry with muted first, then unmute
+                        setTimeout(() => {
+                            audio.muted = true;
+                            audio.play().then(() => {
+                                setTimeout(() => {
+                                    audio.muted = false;
+                                }, 100);
+                            }).catch(() => {
+                                // Last resort: show play button
+                                showPlayButton();
+                            });
+                        }, 100);
+                    });
+                }
             }
         }
 
-        function createAutoplayButton() {
-            const autoplayBtn = document.createElement('div');
-            autoplayBtn.innerHTML = `
+        function showPlayButton() {
+            if (document.getElementById('forcePlayBtn')) return;
+            
+            const playBtn = document.createElement('div');
+            playBtn.id = 'forcePlayBtn';
+            playBtn.innerHTML = `
                 <div style="
                     position: fixed;
-                    top: 20px;
+                    top: 50%;
                     left: 50%;
-                    transform: translateX(-50%);
+                    transform: translate(-50%, -50%);
                     background: linear-gradient(45deg, #ff1744, #ff6b9d);
                     color: white;
-                    padding: 15px 30px;
-                    border-radius: 25px;
+                    padding: 20px 40px;
+                    border-radius: 30px;
                     cursor: pointer;
                     z-index: 10000;
                     font-weight: bold;
-                    box-shadow: 0 10px 30px rgba(255, 23, 68, 0.5);
-                    animation: bounce 2s ease-in-out infinite;
+                    font-size: 1.2rem;
+                    box-shadow: 0 15px 40px rgba(255, 23, 68, 0.6);
+                    animation: bounce 1s ease-in-out infinite;
+                    text-align: center;
+                    border: 3px solid rgba(255, 255, 255, 0.3);
                 ">
-                    🎵 Click to start music 🎵
+                    🎵 اضغط لتشغيل الموسيقى 🎵<br>
+                    <small style="font-size: 0.8rem; opacity: 0.9;">Click to play music</small>
                 </div>
             `;
             
-            autoplayBtn.onclick = function() {
-                audio.play();
-                document.body.removeChild(autoplayBtn);
+            playBtn.onclick = function() {
+                audio.muted = false;
+                audio.play().then(() => {
+                    document.body.removeChild(playBtn);
+                }).catch(() => {
+                    alert('عذراً، لا يمكن تشغيل الموسيقى في هذا المتصفح');
+                });
             };
             
-            document.body.appendChild(autoplayBtn);
+            document.body.appendChild(playBtn);
         }
 
         // Toggle music
@@ -636,10 +689,7 @@
             if (isPlaying) {
                 audio.pause();
             } else {
-                audio.play().catch((error) => {
-                    console.log('Play failed:', error);
-                    musicStatus.textContent = 'Click to retry';
-                });
+                playAudio();
             }
         }
 
@@ -732,6 +782,19 @@
         
         // Add touch support
         document.addEventListener('touchstart', function() {}, {passive: true});
-    </script>
+
+        // Additional autoplay triggers
+        window.addEventListener('focus', playAudio);
+        window.addEventListener('blur', () => {
+            setTimeout(playAudio, 1000);
+        });
+        
+        // Try to play when page becomes visible
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                setTimeout(playAudio, 500);
+            }
+        });
+</script>
 </body>
-</html>
+    </html>
